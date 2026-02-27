@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <title>CNARG Winner</title>
+    <link rel="stylesheet" href="../src/css/winner.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.4/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="../src/deps/reconnecting-websocket.min.js"></script>
+</head>
+
+<body>
+
+    <div id="overlay">
+
+        <!-- Background Video -->
+        <video autoplay loop muted playsinline class="bg-video">
+            <source src="../assets/videos/iniciocnarg.mp4" type="video/mp4">
+        </video>
+
+        <!-- Center Blackout -->
+        <div class="center-blackout"></div>
+
+        <!-- Top Bar -->
+        <div class="top-bar">
+            <div class="logo-4k"><img src="../assets/logo-4k.png" alt="CNARG 4K"></div>
+            <div class="stage">Match Results</div>
+            <div class="casters" id="roundLabel">—</div>
+        </div>
+
+        <!-- Sidebars -->
+        <div class="side side-l" id="sideP1">PLAYER 1</div>
+        <div class="side side-r" id="sideP2">PLAYER 2</div>
+
+        <!-- Winner Center Panel -->
+        <div id="winner-area">
+
+            <!-- Trophy / Crown Icon -->
+            <div class="trophy-icon">
+                <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="#d4af37" stroke-width="1.5">
+                    <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
+                    <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
+                    <path d="M4 22h16" />
+                    <path d="M10 22V16" />
+                    <path d="M14 22V16" />
+                    <path d="M10 16h4" />
+                    <path d="M6 2h12l-1.5 7.5a5.5 5.5 0 0 1-9 0L6 2z" />
+                </svg>
+            </div>
+
+            <div class="winner-label">MATCH WINNER</div>
+
+            <!-- Winner Avatar -->
+            <div class="winner-avatar" id="winner-avatar"></div>
+
+            <!-- Winner Name -->
+            <div class="winner-name" id="winner-name">—</div>
+
+            <!-- Score -->
+            <div class="final-score">
+                <span class="score-p1" id="score-left">0</span>
+                <span class="score-dash">—</span>
+                <span class="score-p2" id="score-right">0</span>
+            </div>
+
+            <!-- Loser line -->
+            <div class="loser-line">
+                <span class="loser-label">vs</span>
+                <span class="loser-name" id="loser-name">—</span>
+            </div>
+
+        </div>
+
+    </div>
+    <script src="../src/js/winner.js"></script>
+</body>
+
+</html>

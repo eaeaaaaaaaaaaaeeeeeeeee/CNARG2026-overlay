@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>CNARG Overlay - Redención</title>
+    <style>
+        /* --- RESET Y FUENTES --- */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
+        
+        :root {
+            --p1: #f7a858;
+            --p2: #589ced;
+        }
+
+        body, html {
+            margin: 0; padding: 0;
+            background: #111; /* Fondo oscuro para que no te queme los ojos si falla el video */
+            display: flex; justify-content: center; align-items: center;
+            height: 100vh; overflow: hidden;
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* --- LIENZO DE OBS EXACTO --- */
+        #overlay {
+            width: 1920px;
+            height: 1080px;
+            background-color: #1a1a1a; /* Gris muy oscuro base */
+            position: relative;
+            transform-origin: center;
+            /* Aquí iría tu video si lo pones absoluto atrás */
+        }
+
+        /* --- BARRA SUPERIOR (top: 23px, left: 284px) --- */
+        .top-bar { position: absolute; top: 23px; left: 284px; display: flex; gap: 67px; height: 84px; }
+        .logo-4k { width: 84px; height: 84px; background: rgba(255,255,255,0.1); border-radius: 50%; display: flex; justify-content: center; align-items: center; color: var(--p1); font-weight: bold;}
+        .stage { width: 168px; height: 84px; display: flex; align-items: center; justify-content: center; color: white; border: 1px solid white; font-size: 20px; font-weight: bold; }
+        .map-box { width: 614px; height: 84px; background: rgba(0,0,0,0.8); display: flex; border-radius: 8px; overflow: hidden; }
+        .map-banner { width: 242px; height: 84px; background: #333; position: relative;}
+        .map-mod { position: absolute; top: 4px; right: 4px; background: var(--p1); color: black; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 14px;}
+        .map-text { padding: 10px 15px; color: white; display: flex; flex-direction: column; justify-content: center; }
+        .map-text h1 { margin: 0; font-size: 18px; color: var(--p2); }
+        .map-text h2 { margin: 0; font-size: 12px; color: #aaa; margin-bottom: 4px;}
+        .map-text p { margin: 0; font-size: 11px; }
+        .map-text span { color: var(--p1); font-weight: bold;}
+        .casters { width: 150px; height: 30px; background: rgba(255,255,255,0.9); margin-top: 27px; display: flex; align-items: center; justify-content: center; font-weight: bold; color: var(--p1); border-radius: 4px;}
+
+        /* --- LATERALES VERTICALES --- */
+        .side { position: absolute; top: 132px; width: 56px; height: 687px; display: flex; align-items: center; justify-content: center; font-size: 50px; font-weight: bold; letter-spacing: 15px; writing-mode: vertical-rl; text-transform: uppercase;}
+        .side-l { left: 0; transform: rotate(180deg); color: var(--p1); }
+        .side-r { right: 0; color: var(--p2); }
+
+        /* --- BARRA INFERIOR (1920x264) --- */
+        .bottom-bar { position: absolute; top: 816px; left: 0; width: 1920px; height: 264px; }
+
+        /* Tug of War (Centro superior de la barra de abajo) */
+        .tug-container { position: absolute; top: 35px; left: 432px; width: 1056px; height: 20px; background: rgba(255,255,255,0.2); }
+        .tug-red { width: 50%; height: 100%; background: var(--p1); clip-path: polygon(0 0, 100% 0, 95% 100%, 0 100%); }
+        .tug-diff-text { position: absolute; top: 60px; left: 0; width: 100%; text-align: center; color: white; font-size: 14px; font-weight: bold;}
+        .diff-arrow { position: absolute; top: 55px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 6px solid var(--p1); }
+
+        /* Scores Gigantes */
+        .score { position: absolute; top: 80px; font-size: 72px; font-weight: bold; color: white; letter-spacing: 2px;}
+        .s-left { right: 980px; }
+        .s-right { left: 980px; }
+
+        /* Barra Progreso Abajo */
+        .progreso-bar { position: absolute; top: 180px; left: 710px; width: 500px; height: 6px; background: white; border-radius: 4px; }
+        .progreso-text { position: absolute; top: 190px; width: 100%; text-align: center; font-size: 10px; color: #888; text-transform: uppercase;}
+
+        /* Player 1 y 2 Data */
+        .avatar { position: absolute; top: 35px; width: 120px; height: 120px; border-radius: 8px; }
+        .a-left { left: 40px; background: var(--p1); }
+        .a-right { right: 40px; background: var(--p2); }
+
+        .p-info { position: absolute; top: 35px; color: white; }
+        .i-left { left: 180px; }
+        .i-right { right: 180px; text-align: right; }
+        .p-info h2 { margin: 0; font-size: 42px; text-transform: uppercase; margin-bottom: 5px;}
+        .p-info p { margin: 0; font-size: 16px; color: white; font-weight: bold;}
+        .p-info span { color: #888; }
+
+        .pick-box { position: absolute; top: 180px; display: flex; align-items: center; gap: 8px; }
+        .pb-left { left: 40px; }
+        .pb-right { right: 40px; flex-direction: row-reverse;}
+        .pick-label { font-size: 24px; font-weight: bold; color: var(--p1); }
+        .pb-right .pick-label { color: white; }
+        .sq { width: 30px; height: 20px; background: var(--p1); border-radius: 2px;}
+        .pb-right .sq { background: var(--p2); }
+
+        /* Judgements (Centro al fondo) */
+        .judgements { position: absolute; bottom: 20px; width: 100%; display: flex; justify-content: center; gap: 150px; font-size: 13px; color: white; font-weight: bold;}
+        .j-row { display: flex; gap: 15px; }
+        .j-miss { color: #ff4c4c; }
+        .judgements span span { color: #aaa; margin-left: 2px;}
+
+    </style>
+</head>
+<body>
+
+<div id="overlay">
+
+    <div class="top-bar">
+        <div class="logo-4k">4K</div>
+        <div class="stage">Cuartos de Final</div>
+        <div class="map-box">
+            <div class="map-banner">
+                <div class="map-mod">TB</div>
+            </div>
+            <div class="map-text">
+                <h1 id="np-title">Artist - Song Title</h1>
+                <h2 id="np-mapper">mapeado por Mapper</h2>
+                <p>SR <span id="np-sr">0.00*</span> OD <span id="np-od">0.0</span> BPM <span id="np-bpm">000</span> DURACIÓN <span id="np-time">00:00</span></p>
+            </div>
+        </div>
+        <div class="casters">Casters</div>
+    </div>
+
+    <div class="side side-l">PLAYER 1</div>
+    <div class="side side-r">PLAYER 2</div>
+
+    <div class="bottom-bar">
+        
+        <div class="tug-container"><div class="tug-red" id="tug-bar"></div></div>
+        <div class="diff-arrow"></div>
+        <div class="tug-diff-text" id="score-diff">6.583</div>
+
+        <div class="score s-left" id="p1-score">164,860</div>
+        <div class="score s-right" id="p2-score">158,277</div>
+
+        <div class="progreso-bar"></div>
+        <div class="progreso-text">Progreso</div>
+
+        <div class="avatar a-left"></div>
+        <div class="p-info i-left">
+            <h2 id="p1-name">PLAYER 1</h2>
+            <p>SEED <span id="p1-seed">#?</span> <br> RANK <span id="p1-rank">#?</span></p>
+        </div>
+        <div class="pick-box pb-left">
+            <div class="pick-label">PICK</div>
+            <div class="sq"></div><div class="sq"></div><div class="sq"></div><div class="sq"></div>
+        </div>
+
+        <div class="avatar a-right"></div>
+        <div class="p-info i-right">
+            <h2 id="p2-name">PLAYER 2</h2>
+            <p>SEED <span id="p2-seed">#?</span> <br> RANK <span id="p2-rank">#?</span></p>
+        </div>
+        <div class="pick-box pb-right">
+            <div class="pick-label">PICK</div>
+            <div class="sq"></div><div class="sq"></div><div class="sq"></div><div class="sq"></div>
+        </div>
+
+        <div class="judgements">
+            <div class="j-row">MAX<span>0</span> | 300<span>0</span> | 200<span>0</span> | 100<span>0</span> | 50<span>0</span> | <span class="j-miss">MISS<span>0</span></span></div>
+            <div class="j-row">MAX<span>0</span> | 300<span>0</span> | 200<span>0</span> | 100<span>0</span> | 50<span>0</span> | <span class="j-miss">MISS<span>0</span></span></div>
+        </div>
+
+    </div>
+
+</div>
+
+</body>
+</html>

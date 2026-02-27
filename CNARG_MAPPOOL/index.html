@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <title>CNARG Mappool Overlay</title>
+    <link rel="stylesheet" href="../src/css/mappool.css">
+
+    <!-- Dependencies -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.4/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="../src/deps/reconnecting-websocket.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/obs-websocket-js@5.0.4/dist/obs-ws.min.js"></script>
+</head>
+
+<body>
+
+    <div id="overlay">
+
+        <!-- Background Video (borders only — clip-path cuts center) -->
+        <video autoplay loop muted playsinline class="bg-video">
+            <source src="../assets/videos/iniciocnarg.mp4" type="video/mp4">
+        </video>
+
+        <!-- BLACK-OUT: Solid dark panel for the center area where the grid lives -->
+        <div class="center-blackout"></div>
+
+        <!-- EXACT Top Bar from MATCH -->
+        <div class="top-bar">
+            <div class="logo-4k"><img src="../assets/logo-4k.png" alt="CNARG 4K"></div>
+            <div class="stage">Mappool Phase</div>
+            <div class="casters" id="pickingText">Waiting...</div>
+        </div>
+
+        <!-- EXACT Sidebars from MATCH -->
+        <div class="side side-l" id="playerOneName">PLAYER 1</div>
+        <div class="side side-r" id="playerTwoName">PLAYER 2</div>
+
+        <!-- Central Mappool Layout -->
+        <div id="main-mappool">
+
+            <!-- ====== SELECTED MAP PREVIEW (Task 1) ====== -->
+            <!-- ====== SELECTED MAP PREVIEW (Compact Horizontal Bar) ====== -->
+            <div id="selectedMapContainer">
+                <div id="wrapper">
+                    <div id="overlay-blur"></div>
+                    <div id="beatmapImage"></div>
+                </div>
+                <div id="foregroundMap">
+                    <div id="upcomingText">UPCOMING MAP</div>
+                    <div id="selectedMap">SELECTED MAP</div>
+                    <div id="map">
+                        <div id="pickID">XX1</div>
+                        <div class="map-text-info">
+                            <div id="song">ARTIST - TITLE</div>
+                            <div id="mapper">MAPSET BY MAPPER</div>
+                        </div>
+                        <div id="stats">
+                            <div id="mapSR" class="statFont">SR 0.00*</div>
+                            <div id="mapOD" class="statFont">OD 0.0</div>
+                            <div id="mapBPM" class="statFont">BPM 000</div>
+                            <div id="mapLength" class="statFont">LENGTH 00:00</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Center Mappool Grid (Game Cards injected by JS) -->
+            <div id="mappoolContainer"></div>
+
+            <!-- Sleek Transparent Chat -->
+            <div id="chatContainer">
+                <div id="chats"></div>
+            </div>
+
+        </div>
+
+        <!-- Timeout Overlay -->
+        <div id="screen">
+            <div id="timeoutOverlay"></div>
+            <div id="timeoutFloater"></div>
+        </div>
+
+    </div>
+
+    <!-- Hidden Control Panel for Referees (Below 1080p viewport) -->
+    <div id="controlPanel">
+        <button class="cp-btn cp-protect" id="protectButton">PHASE: PROTECT</button>
+        <button class="cp-btn" id="banButton">PHASE: BAN</button>
+        <button class="cp-btn" id="pickButton">PHASE: PICK</button>
+        <button class="cp-btn cp-p1" id="playerOneButton">P1 TURN</button>
+        <button class="cp-btn cp-p2" id="playerTwoButton">P2 TURN</button>
+        <button class="cp-btn cp-next" id="nextButton">NEXT STEP</button>
+        <button class="cp-btn cp-swap" id="swapStartButton">SWAP START</button>
+        <button class="cp-btn" id="obsAutoToggle" style="border-color: #5af78e; color: #5af78e;">OBS: AUTO</button>
+        <button class="cp-btn cp-timeout" id="leftTimeout">P1 TIMEOUT</button>
+        <button class="cp-btn cp-timeout" id="rightTimeout" style="border-color: var(--p2); color: var(--p2);">P2
+            TIMEOUT</button>
+
+        <!-- Hidden refs for JS -->
+        <div id="playerOnePic" style="display:none;"></div>
+        <div id="playerOneSeed" style="display:none;"></div>
+        <div id="playerOneRank" style="display:none;"></div>
+        <div id="playerTwoPic" style="display:none;"></div>
+        <div id="playerTwoSeed" style="display:none;"></div>
+        <div id="playerTwoRank" style="display:none;"></div>
+        <div id="scoreBlue" style="display:none;"></div>
+        <div id="scoreRed" style="display:none;"></div>
+        <div id="banOneContainer" style="display:none;"></div>
+        <div id="banTwoContainer" style="display:none;"></div>
+        <div id="pickOneContainer" style="display:none;"></div>
+        <div id="pickTwoContainer" style="display:none;"></div>
+    </div>
+
+    <script src="../src/js/obs-logic.js"></script>
+    <script src="../src/js/mappool.js"></script>
+</body>
+
+</html>

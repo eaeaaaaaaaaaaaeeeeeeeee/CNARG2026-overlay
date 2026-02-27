@@ -1,0 +1,7 @@
+{
+    "stage_id": "YOUR_STAGE_UUID_HERE",
+    "obs_ws_url": "ws://localhost:4455",
+    "obs_ws_pwd": "YOUR_OBS_WEBSOCKET_PASSWORD",
+    "supabase_url": "https://your-project-id.supabase.co",
+    "supabase_key": "YOUR_SUPABASE_ANON_KEY"
+}

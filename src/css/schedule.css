@@ -1,0 +1,325 @@
+/* =============================================================
+   CNARG 2026 — SCHEDULE SCENE
+   Design System: Clash Display, Hikasami Bold, --p1, --p2
+   ============================================================= */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
+
+@font-face {
+    font-family: 'ITC Machine';
+    src: url('../../assets/fonts/itcmachine.otf');
+}
+
+@font-face {
+    font-family: 'Trebuchet MS';
+    src: url('../../assets/fonts/trebuchetms.ttf');
+}
+
+:root {
+    --p1: #f7a858;
+    --p2: #589ced;
+}
+
+body,
+html {
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    overflow: hidden;
+    font-family: 'Inter', sans-serif;
+    color: white;
+}
+
+#overlay {
+    width: 1920px;
+    height: 1080px;
+    position: relative;
+    overflow: hidden;
+}
+
+/* --- BG VIDEO --- */
+.bg-video {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: 0;
+    clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%,
+            0% 819px, 1869px 819px, 1869px 132px, 56px 132px, 56px 819px, 0% 819px);
+}
+
+.center-blackout {
+    position: absolute;
+    top: 132px;
+    left: 56px;
+    width: 1813px;
+    height: 687px;
+    background: rgba(8, 8, 14, 0.92);
+    backdrop-filter: blur(10px);
+    z-index: 1;
+}
+
+/* --- TOP BAR --- */
+.top-bar {
+    position: absolute;
+    top: 23px;
+    left: 284px;
+    display: flex;
+    gap: 67px;
+    height: 84px;
+    z-index: 10;
+}
+
+.logo-4k {
+    width: 84px;
+    height: 84px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.logo-4k img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.stage {
+    width: 200px;
+    height: 84px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 18px;
+    font-weight: bold;
+    letter-spacing: 2px;
+    font-family: 'ITC Machine', sans-serif;
+}
+
+.casters {
+    width: 150px;
+    height: 30px;
+    background: #353532;
+    margin-top: 27px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    color: var(--p1);
+    border-radius: 4px;
+    font-size: 13px;
+    font-family: 'ITC Machine', sans-serif;
+}
+
+/* =============================================================
+   SCHEDULE AREA
+   ============================================================= */
+#schedule-area {
+    position: absolute;
+    top: 132px;
+    left: 56px;
+    width: 1813px;
+    height: 687px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 0;
+    z-index: 5;
+    box-sizing: border-box;
+}
+
+.schedule-header {
+    font-family: 'Trebuchet MS', sans-serif;
+    font-size: 36px;
+    font-weight: bold;
+    color: #fff;
+    letter-spacing: 6px;
+    margin-bottom: 30px;
+    text-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+#matches-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: 100%;
+    max-width: 1200px;
+    height: 500px;
+    overflow-y: auto;
+    scrollbar-width: none;
+    padding: 10px;
+}
+
+#matches-list::-webkit-scrollbar {
+    display: none;
+}
+
+/* --- Match Row --- */
+.match-row {
+    background: rgba(0, 0, 0, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 100px;
+    padding: 0 30px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+    transition: transform 0.2s ease, border-color 0.2s ease;
+    animation: fadeInRow 0.5s ease backwards;
+}
+
+.match-row:hover {
+    transform: translateY(-2px);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+@keyframes fadeInRow {
+    from {
+        opacity: 0;
+        transform: translateY(15px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Time */
+.match-time {
+    width: 150px;
+    font-family: 'Trebuchet MS', sans-serif;
+    font-size: 32px;
+    font-weight: bold;
+    color: #e0e0e0;
+}
+
+/* Teams Container */
+.teams-container {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 40px;
+}
+
+.team {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    width: 350px;
+}
+
+.team.right {
+    flex-direction: row-reverse;
+}
+
+.team-logo {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: #222 center/cover no-repeat;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    flex-shrink: 0;
+}
+
+.team-name {
+    font-family: 'ITC Machine', sans-serif;
+    font-size: 24px;
+    color: white;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Middle VS & Status */
+.match-middle {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    width: 120px;
+}
+
+.vs {
+    font-family: 'Trebuchet MS', sans-serif;
+    font-size: 20px;
+    font-weight: bold;
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.status-badge {
+    font-family: 'ITC Machine', sans-serif;
+    font-size: 11px;
+    font-weight: bold;
+    padding: 4px 10px;
+    border-radius: 4px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+}
+
+.status-upcoming {
+    background: rgba(255, 255, 255, 0.1);
+    color: #ccc;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.status-live {
+    background: rgba(247, 168, 88, 0.15);
+    color: var(--p1);
+    border: 1px solid var(--p1);
+    box-shadow: 0 0 10px rgba(247, 168, 88, 0.4);
+    animation: pulseLive 2s infinite alternate;
+}
+
+.status-completed {
+    background: rgba(88, 156, 237, 0.15);
+    color: var(--p2);
+    border: 1px solid var(--p2);
+}
+
+@keyframes pulseLive {
+    0% {
+        box-shadow: 0 0 10px rgba(247, 168, 88, 0.2);
+    }
+
+    100% {
+        box-shadow: 0 0 20px rgba(247, 168, 88, 0.6);
+    }
+}
+
+/* ===============================================
+   CONTROL PANEL
+   =============================================== */
+#controlPanel {
+    position: absolute;
+    top: 1080px;
+    left: 0;
+    width: 1920px;
+    height: 120px;
+    background: #111;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    z-index: 9999;
+}
+
+.cp-btn {
+    height: 48px;
+    padding: 0 20px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Trebuchet MS', sans-serif;
+    font-size: 14px;
+    cursor: pointer;
+    border: 1.5px solid rgba(255, 255, 255, 0.15);
+    background: #1a1a1a;
+    color: white;
+}

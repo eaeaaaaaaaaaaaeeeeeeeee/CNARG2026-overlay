@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <title>CNARG Gameplay Overlay</title>
+    <link rel="stylesheet" href="../src/css/match.css">
+    <!-- Supabase JS CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.4/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/obs-websocket-js@5.0.2/dist/obs-ws.min.js"></script>
+</head>
+
+<body>
+
+    <div id="overlay">
+
+        <video autoplay loop muted playsinline class="bg-video">
+            <source src="../assets/videos/iniciocnarg.mp4" type="video/mp4">
+        </video>
+
+        <div class="top-bar">
+            <div class="logo-4k"><img src="../assets/logo-4k.png" alt="CNARG 4K"></div>
+            <div class="stage">Cuartos de Final</div>
+            <div class="map-box">
+                <div class="map-banner">
+                    <div class="map-mod">TB</div>
+                </div>
+                <div class="map-text">
+                    <h1 id="np-title">Artist - Song Title</h1>
+                    <h2 id="np-mapper">mapeado por Mapper</h2>
+                    <p>SR <span id="np-sr">0.00*</span> OD <span id="np-od">0.0</span> BPM <span id="np-bpm">000</span>
+                        DURACIÓN <span id="np-time">00:00</span></p>
+                </div>
+            </div>
+            <div class="casters">Casters</div>
+        </div>
+
+        <div class="side side-l" id="p1-side-name">PLAYER 1</div>
+        <div class="side side-r" id="p2-side-name">PLAYER 2</div>
+
+        <div class="bottom-bar">
+
+            <div class="tug-container">
+                <div class="tug-red" id="tug-bar"></div>
+            </div>
+            <div class="diff-arrow"></div>
+            <div class="tug-diff-text" id="score-diff">6.583</div>
+
+            <div class="score s-left" id="p1-score">164,860</div>
+            <div class="score s-right" id="p2-score">158,277</div>
+
+            <div class="progreso-bar-container">
+                <div class="progreso-fill" id="progreso-fill"></div>
+            </div>
+            <div class="progreso-text">Progreso</div>
+
+            <div class="avatar a-left" id="p1-avatar"></div>
+            <div class="p-info i-left">
+                <h2 id="p1-name">TEAM 1</h2>
+                <div class="p-roster" id="p1-roster">
+                    <!-- Roster injected here -->
+                </div>
+                <p class="p-stats">SEED <span id="p1-seed">-</span></p>
+            </div>
+            <div class="pick-box pb-left">
+                <div class="pick-label">PICK</div>
+                <div class="sq"></div>
+                <div class="sq"></div>
+                <div class="sq"></div>
+                <div class="sq"></div>
+            </div>
+
+            <div class="avatar a-right" id="p2-avatar"></div>
+            <div class="p-info i-right">
+                <h2 id="p2-name">TEAM 2</h2>
+                <div class="p-roster" id="p2-roster">
+                    <!-- Roster injected here -->
+                </div>
+                <p class="p-stats">SEED <span id="p2-seed">-</span></p>
+            </div>
+            <div class="pick-box pb-right">
+                <div class="pick-label">PICK</div>
+                <div class="sq"></div>
+                <div class="sq"></div>
+                <div class="sq"></div>
+                <div class="sq"></div>
+            </div>
+
+            <div class="judgements">
+                <div class="j-row">MAX <span id="p1-max">0</span> | 300 <span id="p1-300">0</span> | 200 <span
+                        id="p1-200">0</span> | 100 <span id="p1-100">0</span> | 50 <span id="p1-50">0</span> | <span
+                        class="j-miss">MISS <span id="p1-miss">0</span></span></div>
+                <div class="j-row">MAX <span id="p2-max">0</span> | 300 <span id="p2-300">0</span> | 200 <span
+                        id="p2-200">0</span> | 100 <span id="p2-100">0</span> | 50 <span id="p2-50">0</span> | <span
+                        class="j-miss">MISS <span id="p2-miss">0</span></span></div>
+            </div>
+
+        </div>
+
+        <!-- Win Screen (shown on ipcState 4) -->
+        <div id="winScreen">
+            <div id="winText">
+                <div id="winnerName">Player X</div>
+                <div>gana el punto</div>
+            </div>
+            <div id="finalScore">
+                <div id="playerOneFinal">1,000,000</div>
+                <div id="versus">VS</div>
+                <div id="playerTwoFinal">1,000,000</div>
+            </div>
+            <div id="percentage">0.00%</div>
+        </div>
+
+    </div>
+
+    <!-- Dependencies -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.6.7/axios.min.js"></script>
+    <script src="../src/deps/reconnecting-websocket.min.js"></script>
+    <script src="../src/deps/countUp.js"></script>
+
+    <!-- Overlay Logic -->
+    <script src="../src/js/match.js"></script>
+</body>
+
+</html>

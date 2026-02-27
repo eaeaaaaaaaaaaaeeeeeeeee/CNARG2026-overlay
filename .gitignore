@@ -1,0 +1,25 @@
+# Variables de entorno
+.env
+.env.local
+config.json
+
+# Dependencias (si eventualmente se usa NPM)
+node_modules/
+package-lock.json
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Caché / Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.eslintcache
+
+# Workspace settings (VS Code, etc.)
+.vscode/
+*.code-workspace

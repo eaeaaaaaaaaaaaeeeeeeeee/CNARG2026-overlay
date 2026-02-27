@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <title>CNARG Schedule</title>
+    <link rel="stylesheet" href="../src/css/schedule.css">
+    <!-- Supabase JS CDN via CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.4/jquery.min.js"></script>
+    <script src="../src/deps/reconnecting-websocket.min.js"></script>
+</head>
+
+<body>
+
+    <div id="overlay">
+
+        <!-- Background Video with Clip-Path -->
+        <video autoplay loop muted playsinline class="bg-video">
+            <source src="../assets/videos/iniciocnarg.mp4" type="video/mp4">
+        </video>
+
+        <!-- Center Blackout -->
+        <div class="center-blackout"></div>
+
+        <!-- Top Bar -->
+        <div class="top-bar">
+            <div class="logo-4k"><img src="../assets/logo-4k.png" alt="CNARG 4K"></div>
+            <div class="stage">Schedule</div>
+            <div class="casters" id="roundLabel">Quarter-Finals</div>
+        </div>
+
+        <!-- Schedule Container -->
+        <div id="schedule-area">
+            <div class="schedule-header">UPCOMING MATCHES</div>
+            <div id="matches-list">
+                <!-- Matches will be injected here via JS -->
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Hidden Control Panel -->
+    <div id="controlPanel">
+        <button class="cp-btn cp-next" id="refreshButton">REFRESH SCHEDULE</button>
+    </div>
+
+    <script src="../src/js/schedule.js"></script>
+</body>
+
+</html>

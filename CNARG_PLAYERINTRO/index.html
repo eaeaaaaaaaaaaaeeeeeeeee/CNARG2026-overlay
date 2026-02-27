@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <title>CNARG Player Intro</title>
+    <link rel="stylesheet" href="../src/css/playerintro.css">
+    <!-- Supabase JS CDN via CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.4/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="../src/deps/reconnecting-websocket.min.js"></script>
+</head>
+
+<body>
+
+    <div id="overlay">
+
+        <!-- Background Video with Clip-Path -->
+        <video autoplay loop muted playsinline class="bg-video">
+            <source src="../assets/videos/iniciocnarg.mp4" type="video/mp4">
+        </video>
+
+        <!-- Center Blackout -->
+        <div class="center-blackout"></div>
+
+        <!-- Top Bar (MATCH style) -->
+        <div class="top-bar">
+            <div class="logo-4k"><img src="../assets/logo-4k.png" alt="CNARG 4K"></div>
+            <div class="stage">Player Introduction</div>
+            <div class="casters" id="roundLabel">—</div>
+        </div>
+
+        <!-- Sidebars -->
+        <div class="side side-l" id="sideP1">PLAYER 1</div>
+        <div class="side side-r" id="sideP2">PLAYER 2</div>
+
+        <!-- Center: Player Intro Cards -->
+        <div id="intro-area">
+
+            <!-- P1 Panel -->
+            <div class="intro-card card-left">
+                <div class="card-accent accent-left"></div>
+                <div class="card-avatar" id="p1-avatar"></div>
+                <div class="card-info">
+                    <div class="card-name" id="p1-name">PLAYER 1</div>
+                    <div class="card-seed" id="p1-seed"></div>
+                </div>
+            </div>
+
+            <!-- VS Divider -->
+            <div class="vs-divider">
+                <div class="vs-text">VS</div>
+            </div>
+
+            <!-- P2 Panel -->
+            <div class="intro-card card-right">
+                <div class="card-accent accent-right"></div>
+                <div class="card-avatar" id="p2-avatar"></div>
+                <div class="card-info">
+                    <div class="card-name" id="p2-name">PLAYER 2</div>
+                    <div class="card-seed" id="p2-seed"></div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Match Info Footer -->
+        <div id="match-footer">
+            <span class="footer-label">BEST OF</span>
+            <span class="footer-value" id="bestOf">—</span>
+        </div>
+
+    </div>
+
+    <script src="../src/js/playerintro.js"></script>
+</body>
+
+</html>
