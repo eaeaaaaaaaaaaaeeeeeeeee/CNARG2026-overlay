@@ -1,8 +1,8 @@
-# 🏆 CNARG 4K 2026 - Official Stream Overlay
+# CNARG 4K 2026 - Stream overlay
 
 Overlay oficial desarrollado para la Copa Nacional Argentina (CNARG) 2026. Este sistema se conecta de manera nativa con **TOSU** y **OBS Studio**.
 
-## 🚀 Instalación y Uso
+## Instalación y Uso
 
 1. **Ubicación de archivos:**
    Esta carpeta (`CNARG2026`) debe ser copiada dentro de los archivos estáticos de **TOSU**. Por lo general en: `tosu/static/CNARG2026`.
@@ -18,7 +18,7 @@ Overlay oficial desarrollado para la Copa Nacional Argentina (CNARG) 2026. Este 
    - **Calendario (Schedule):** `http://localhost:24050/CNARG2026/CNARG_SCHEDULE/index.html`
    - **Ganador:** `http://localhost:24050/CNARG2026/CNARG_WINNER/index.html`
 
-## 🔒 Seguridad y Configuración
+## Seguridad y Configuración
 
 Los "secrets" (API Keys de Supabase, accesos al WebSocket) han sido extraídos. El archivo `.env` está oculto. Vos podés configurar las variables renombrando `.env.example` a `.env` (si usás un servidor backend), o utilizar directamente el archivo pre-armado `config.json`.
 
@@ -33,10 +33,10 @@ Los "secrets" (API Keys de Supabase, accesos al WebSocket) han sido extraídos. 
     "supabase_key": "YOUR_SUPABASE_ANON_KEY"
 }
 ```
-## 🎥 OBS Auto-Switcher
+## OBS Auto-Switcher
 
 Este parche incluye un archivo lógico `obs-logic.js` que cambia de manera totalmente automática de la escena "Match" a la escena "Mappool" interpretando los estados del juego a través del Socket IPC de TOSU. 
 Para que esto funcione correctamente en tu PC:
-1. Andá a Herramientas -> "Ajustes de WebSocket" dentro de OBS Studio.
-2. Anotá la contraseña y configurala en tu `config.json`.
+1. Ve a Herramientas -> "Ajustes de WebSocket" dentro de OBS Studio.
+2. Anota la contraseña y configurala en tu `config.json`.
 3. Tus escenas en OBS deben llamarse textualmente `"MATCH"` y `"MAPPOOL"`. Si se llaman distinto, modificalo en la cabecera de `src/js/obs-logic.js`.
