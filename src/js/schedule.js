@@ -1,7 +1,4 @@
-// =============================================================
-// CNARG 2026 — SCHEDULE SCENE
-// Fetches match schedule directly using Supabase JS Client.
-// =============================================================
+// CNARG 2026 - Schedule Scene
 
 let SUPABASE_URL = "";
 let SUPABASE_KEY = "";
@@ -13,7 +10,6 @@ const dom = {
     refreshBtn: document.getElementById('refreshButton')
 };
 
-// Global Config
 let STAGE_ID = '';
 
 async function init() {
@@ -23,7 +19,6 @@ async function init() {
         SUPABASE_URL = c.supabase_url;
         SUPABASE_KEY = c.supabase_key;
 
-        // Initialize Supabase Client dynamically
         supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
         dom.roundLabel.textContent = `Stage: ${STAGE_ID}`;
@@ -31,14 +26,10 @@ async function init() {
     } catch (e) { }
 }
 
-// 2. Fetch and Render Matches
 async function fetchSchedule() {
     dom.matchesList.innerHTML = '<div style="color: grey; text-align: center; margin-top: 20px;">Loading schedule...</div>';
 
     try {
-        // Query matches and join teams
-        // Assuming typical foreign keys: team_1_id, team_2_id => teams table
-        // Adjust the foreign key references if your schema uses different exact names.
         const { data: matches, error } = await supabase
             .from('matches')
             .select(`
@@ -69,19 +60,16 @@ async function fetchSchedule() {
     }
 }
 
-// Render a single match row
 function renderMatchRow(match) {
     const row = document.createElement('div');
     row.className = 'match-row';
 
-    // Format time (e.g., 2026-10-15T18:00:00Z -> "18:00")
     let timeString = 'TBD';
     if (match.match_time) {
         const d = new Date(match.match_time);
         timeString = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
 
-    // Status mapping (default logic)
     let stateClass = 'status-upcoming';
     let stateLabel = 'UPCOMING';
 
@@ -96,7 +84,6 @@ function renderMatchRow(match) {
         }
     }
 
-    // Team data safety defaults
     const t1 = match.team1 || { name: 'TBD', logo_url: '' };
     const t2 = match.team2 || { name: 'TBD', logo_url: '' };
 
@@ -130,10 +117,8 @@ function renderMatchRow(match) {
     dom.matchesList.appendChild(row);
 }
 
-// Refresher button
 if (dom.refreshBtn) {
     dom.refreshBtn.addEventListener('click', fetchSchedule);
 }
 
-// Start
 init();

@@ -1,33 +1,11 @@
-// =============================================================
-// CNARG 2026 — PLAYERINTRO SCENE
-// Fetches team data from TOSU + Supabase, fills the intro cards.
-// =============================================================
+// CNARG 2026 - Player Intro Scene
 
 let SUPABASE_URL = "";
 let SUPABASE_KEY = "";
 
-const socket = new ReconnectingWebSocket('ws://' + location.host + '/ws');
-socket.onopen = async () => {
+const socket = new ReconnectingWebSocket(`ws://${location.host}/ws`);
+socket.onopen = async () => { };
 
-    // Load optional data files (not critical — don't crash if missing)
-    try {
-        const bsData = await $.getJSON("../_data/beatmaps.json");
-        beatmapSet = bsData;
-        beatmaps = bsData.map(b => b.beatmapId);
-    } catch (e) { console.warn("beatmaps.json not found (non-critical)"); }
-
-    try {
-        const sdData = await $.getJSON("../_data/prism_seed.json");
-        seeds = sdData;
-    } catch (e) { console.warn("prism_seed.json not found (non-critical)"); }
-
-    try {
-        const apData = await $.getJSON("../_data/api.json");
-        api = apData[0].api;
-    } catch (e) { }
-};
-
-// Stage Name Logic (critical — runs independently)
 (async () => {
     try {
         const configData = await $.getJSON("../config.json");
@@ -49,8 +27,6 @@ socket.onopen = async () => {
         }
     } catch (e) { }
 })();
-
-// DOM
 const dom = {
     sideP1: document.getElementById('sideP1'),
     sideP2: document.getElementById('sideP2'),
@@ -64,8 +40,8 @@ const dom = {
     round: document.getElementById('roundLabel'),
 };
 
-let tempLeft = '';
-let tempRight = '';
+let lastPlayerOneName = '';
+let lastPlayerTwoName = '';
 
 async function updatePlayer(side, nickname) {
     const titleName = nickname;
@@ -99,13 +75,12 @@ async function updatePlayer(side, nickname) {
     } catch (e) { }
 
     if (side === 'left') {
-        dom.p1Name.textContent = titleName; // Card title stays as Team Name
+        dom.p1Name.textContent = titleName;
         dom.p1Seed.textContent = teamSeed != null ? `SEED #${teamSeed}` : '';
         if (teamLogo) dom.p1Avatar.style.backgroundImage = `url('${teamLogo}')`;
-        // Side name remains the original nickname (if known) or same as title
         dom.sideP1.textContent = titleName;
     } else {
-        dom.p2Name.textContent = titleName; // Card title stays as Team Name
+        dom.p2Name.textContent = titleName;
         dom.p2Seed.textContent = teamSeed != null ? `SEED #${teamSeed}` : '';
         if (teamLogo) dom.p2Avatar.style.backgroundImage = `url('${teamLogo}')`;
         dom.sideP2.textContent = titleName;
@@ -114,20 +89,18 @@ async function updatePlayer(side, nickname) {
 
 socket.onmessage = async event => {
     const data = JSON.parse(event.data);
-    const mgr = data.tourney.manager;
+    const manager = data.tourney.manager;
 
-    // Best of
-    if (mgr.bestOF) {
-        dom.bestOf.textContent = mgr.bestOF;
+    if (manager.bestOF) {
+        dom.bestOf.textContent = manager.bestOF;
     }
 
-    // Team names
-    if (tempLeft !== mgr.teamName.left && mgr.teamName.left) {
-        tempLeft = mgr.teamName.left;
-        await updatePlayer('left', tempLeft);
+    if (lastPlayerOneName !== manager.teamName.left && manager.teamName.left) {
+        lastPlayerOneName = manager.teamName.left;
+        await updatePlayer('left', lastPlayerOneName);
     }
-    if (tempRight !== mgr.teamName.right && mgr.teamName.right) {
-        tempRight = mgr.teamName.right;
-        await updatePlayer('right', tempRight);
+    if (lastPlayerTwoName !== manager.teamName.right && manager.teamName.right) {
+        lastPlayerTwoName = manager.teamName.right;
+        await updatePlayer('right', lastPlayerTwoName);
     }
 };

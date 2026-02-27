@@ -1,25 +1,20 @@
-// ============================================================
-// CNARG 2026 – Gameplay Overlay (Refactored for new HTML/CSS)
-// ============================================================
+// CNARG 2026 Gameplay Overlay
 
-// SOCKET //////////////////////////////////////////////////////
-let socket = new ReconnectingWebSocket("ws://" + location.host + "/ws");
+// WebSocket Connection
+const socket = new ReconnectingWebSocket(`ws://${location.host}/ws`);
 socket.onopen = () => { };
-socket.onclose = event => { };
-socket.onerror = error => { };
+socket.onclose = () => { };
+socket.onerror = () => { };
 
-// JSON DATA & MOCK ROSTER /////////////////////////////////////
-let beatmapSet = [];
-let beatmaps = [];
-let seeds = [];
-let api = "";
+// Data Caches
+let customBeatmaps = [];
+let customBeatmapIds = [];
 
-// OBS Websocket
-let obs = null;
-let obsConfigured = false;
-let obsTempState = -1;
+// OBS Integration
+let obsClient = null;
+let isObsConfigured = false;
+let lastObsSceneState = -1;
 
-// INJECT YOUR JSON ARRAY HERE
 const PLAYERS_DB = [
     {
         "id": "c2f75753-7a2f-40a0-aa18-9c9c92e8e15f",
@@ -635,34 +630,22 @@ const PLAYERS_DB = [
     }
 ];
 
-// Database Config - Moved to config.json
 let SUPABASE_URL = "";
 let SUPABASE_KEY = "";
 let supabaseClient = null;
 
 (async () => {
-    // Load optional data files (not critical — don't crash if missing)
     try {
-        const bsData = await $.getJSON("../_data/beatmaps.json");
-        beatmapSet = bsData;
-        beatmaps = bsData.map(b => b.beatmapId);
-    } catch (e) { console.warn("beatmaps.json not found (non-critical)"); }
+        const beatmapsData = await $.getJSON("../_data/beatmaps.json");
+        customBeatmaps = beatmapsData;
+        customBeatmapIds = beatmapsData.map(b => b.beatmapId);
+    } catch (e) {
+        // beatmaps.json is optional
+    }
 
-    try {
-        const sdData = await $.getJSON("../_data/prism_seed.json");
-        seeds = sdData;
-    } catch (e) { console.warn("prism_seed.json not found (non-critical)"); }
-
-    try {
-        const apData = await $.getJSON("../_data/api.json");
-        api = apData[0].api;
-    } catch (e) { console.warn("api.json not found (non-critical)"); }
-
-    // Stage Name Logic (critical — runs independently)
     try {
         const configData = await $.getJSON("../config.json");
 
-        // Supabase Initialization
         SUPABASE_URL = configData.supabase_url;
         SUPABASE_KEY = configData.supabase_key;
         supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
@@ -674,12 +657,11 @@ let supabaseClient = null;
             }
         });
 
-        const stageId = configData.stage_id;
-        if (stageId && supabaseClient) {
+        if (configData.stage_id && supabaseClient) {
             const { data: stageData, error } = await supabaseClient
                 .from('stages')
                 .select('name')
-                .eq('id', stageId)
+                .eq('id', configData.stage_id)
                 .single();
             if (!error && stageData) {
                 const stageLabel = document.querySelector(".stage");
@@ -687,26 +669,24 @@ let supabaseClient = null;
             }
         }
 
-        // Setup OBS WebSocket Connection
         if (configData.obs_ws_url && configData.obs_ws_pwd && window.OBSWebSocket) {
-            obs = new OBSWebSocket();
-            await obs.connect(configData.obs_ws_url, configData.obs_ws_pwd);
-            obsConfigured = true;
-            console.log("Connected to OBS WebSocket successfully");
+            obsClient = new OBSWebSocket();
+            await obsClient.connect(configData.obs_ws_url, configData.obs_ws_pwd);
+            isObsConfigured = true;
         }
-    } catch (e) { console.error("Config or Stage name fetch error:", e); }
+    } catch (e) {
+        console.error("Initialization error:", e);
+    }
 })();
 
-// Helper to auto-scale font size if text overflows its container
 function adjustFont(element, boundaryWidth, originalFontSize) {
     element.style.fontSize = `${originalFontSize}px`;
     if (element.scrollWidth > boundaryWidth) {
-        let newFontSize = (originalFontSize * (boundaryWidth / element.scrollWidth)) * 0.95; // 5% safety margin
+        const newFontSize = (originalFontSize * (boundaryWidth / element.scrollWidth)) * 0.95;
         element.style.fontSize = `${newFontSize}px`;
     }
 }
 
-// Re-adjust fonts once custom fonts finish loading completely
 if (document.fonts) {
     document.fonts.ready.then(() => {
         if (dom.p1Name && dom.p1Name.textContent) adjustFont(dom.p1Name, 450, 42);
@@ -714,7 +694,7 @@ if (document.fonts) {
     });
 }
 
-// DOM REFERENCES (New HTML IDs) ///////////////////////////////
+// DOM References
 const dom = {
     // Map Info
     npTitle: document.getElementById("np-title"),
@@ -777,7 +757,6 @@ const dom = {
     percentage: document.getElementById("percentage"),
 };
 
-// COUNTUP ANIMATION ///////////////////////////////////////////
 const countUpOpts = {
     useEasing: true,
     useGrouping: true,
@@ -785,27 +764,27 @@ const countUpOpts = {
     decimal: "."
 };
 
-let animScore = {
+const animScore = {
     p1Score: new CountUp('p1-score', 0, 0, 0, 0.2, countUpOpts),
     p2Score: new CountUp('p2-score', 0, 0, 0, 0.2, countUpOpts),
     scoreDiff: new CountUp('score-diff', 0, 0, 0, 0.2, countUpOpts),
 };
 
-// CACHE VARS //////////////////////////////////////////////////
-let tempLeft = "";
-let tempRight = "";
-let bestOfTemp = 0;
-let starsLeftTemp = -1;
-let starsRightTemp = -1;
-let barThreshold = 100000;
-let previousState = null;
-let cachedScoreLeft = 0;
-let cachedScoreRight = 0;
-
+// State Cache
+let lastPlayerOneName = "";
+let lastPlayerTwoName = "";
+let lastBestOf = 0;
+let lastStarsLeft = -1;
+let lastStarsRight = -1;
 let currentMapId = 0;
 let currentMapMod = "NM";
 
-// PICK SYNC (reads state written by MAPPOOL scene) /////////////
+let previousIpcState = null;
+let cachedScoreLeft = 0;
+let cachedScoreRight = 0;
+const TUG_OF_WAR_THRESHOLD = 100000;
+
+// Synchronization with MAPPOOL scene
 window.addEventListener('storage', e => {
     if (e.key !== 'cnarg-pick') return;
     try {
@@ -836,44 +815,38 @@ window.addEventListener('storage', e => {
 });
 
 
-// HELPER: Parse ms → mm:ss ////////////////////////////////////
 const parseTime = ms => {
     const second = Math.floor(ms / 1000) % 60 + '';
     const minute = Math.floor(ms / 1000 / 60) + '';
     return `${'0'.repeat(2 - minute.length) + minute}:${'0'.repeat(2 - second.length) + second}`;
 };
 
-// ============================================================
-// MAIN LOOP
-// ============================================================
+// Main WebSocket Loop
 socket.onmessage = async event => {
-    let data = JSON.parse(event.data);
-    let manager = data.tourney.manager;
-    let gameplay = manager.gameplay;
-    let currentState = data.menu?.state;
+    const data = JSON.parse(event.data);
+    const manager = data.tourney.manager;
+    const gameplay = manager.gameplay;
+    const currentState = data.menu?.state;
 
-    // --- AUTO SCENE SWITCHER ---
-    if (obsConfigured && obsTempState !== currentState) {
-        obsTempState = currentState;
+    if (isObsConfigured && lastObsSceneState !== currentState) {
+        lastObsSceneState = currentState;
         try {
             let targetScene = "";
             if (currentState === 2) {
-                targetScene = "Match"; // Change to your actual OBS MATCH scene name
+                targetScene = "Match";
             } else if (currentState === 7) {
-                // targetScene = "CNARG_WINNER"; // Optional: Switch to winner/results after map
+                // targetScene = "CNARG_WINNER";
             }
 
-            if (targetScene !== "") {
-                await obs.call('SetCurrentProgramScene', { sceneName: targetScene });
+            if (targetScene) {
+                await obsClient.call('SetCurrentProgramScene', { sceneName: targetScene });
             }
-        } catch (err) { console.error("OBS Switch error:", err); }
+        } catch (err) {
+            console.error("OBS Switch error:", err);
+        }
     }
 
-    // --- Player Names ---
-    // We strictly use:
-    // 1. Team Name (h2 titles): From manager.teamName
-    // 2. Player Nickname (sidebar labels): From ipcClients (or fallback to manager.teamName)
-
+    // Player Identification
     let p1Nickname = manager.teamName.left || "";
     let p2Nickname = manager.teamName.right || "";
 
@@ -882,16 +855,14 @@ socket.onmessage = async event => {
         if (data.tourney.ipcClients[1].spectating.name) p2Nickname = data.tourney.ipcClients[1].spectating.name;
     }
 
-    // Update P1 Side Name (Nickname)
-    if (tempLeft !== p1Nickname && p1Nickname) {
-        tempLeft = p1Nickname;
-        dom.p1SideName.textContent = tempLeft;
+    if (lastPlayerOneName !== p1Nickname && p1Nickname) {
+        lastPlayerOneName = p1Nickname;
+        dom.p1SideName.textContent = lastPlayerOneName;
 
-        const teamName = manager.teamName.left || tempLeft;
-        dom.p1Name.textContent = teamName; // Card title stays as Team Name
-        adjustFont(dom.p1Name, 450, 42); // Automatically scale font if the name overflows
+        const teamName = manager.teamName.left || lastPlayerOneName;
+        dom.p1Name.textContent = teamName;
+        adjustFont(dom.p1Name, 450, 42);
 
-        // Fetch team seed & logo from Supabase teams table (using teamName or nickname match)
         (async () => {
             try {
                 const { data: teamData } = await supabaseClient
@@ -903,22 +874,20 @@ socket.onmessage = async event => {
                     dom.p1Seed.textContent = teamData.seed != null ? teamData.seed : "-";
                     if (teamData.logo_url) dom.p1Avatar.style.backgroundImage = `url('${teamData.logo_url}')`;
                 }
-            } catch (e) { console.error('P1 team fetch error:', e); }
+            } catch (e) { }
         })();
 
         renderRoster(dom.p1Roster, teamName, p1Nickname, "active-p1");
     }
 
-    // Update P2 Side Name (Nickname)
-    if (tempRight !== p2Nickname && p2Nickname) {
-        tempRight = p2Nickname;
-        dom.p2SideName.textContent = tempRight;
+    if (lastPlayerTwoName !== p2Nickname && p2Nickname) {
+        lastPlayerTwoName = p2Nickname;
+        dom.p2SideName.textContent = lastPlayerTwoName;
 
-        const teamName = manager.teamName.right || tempRight;
-        dom.p2Name.textContent = teamName; // Card title stays as Team Name
-        adjustFont(dom.p2Name, 450, 42); // Automatically scale font if the name overflows
+        const teamName = manager.teamName.right || lastPlayerTwoName;
+        dom.p2Name.textContent = teamName;
+        adjustFont(dom.p2Name, 450, 42);
 
-        // Fetch team seed & logo from Supabase teams table
         (async () => {
             try {
                 const { data: teamData } = await supabaseClient
@@ -930,102 +899,84 @@ socket.onmessage = async event => {
                     dom.p2Seed.textContent = teamData.seed != null ? teamData.seed : "-";
                     if (teamData.logo_url) dom.p2Avatar.style.backgroundImage = `url('${teamData.logo_url}')`;
                 }
-            } catch (e) { console.error('P2 team fetch error:', e); }
+            } catch (e) { }
         })();
 
         renderRoster(dom.p2Roster, teamName, p2Nickname, "active-p2");
     }
 
-    // --- Map Info ---
     updateMapDetails(data.menu);
 
-    // --- Scores & Gameplay ---
     if (manager.bools.scoreVisible) {
         updateScore(gameplay.score.left, gameplay.score.right);
 
-        // Judgements
         if (data.tourney.ipcClients && data.tourney.ipcClients.length >= 2) {
             updateJudgements(data.tourney.ipcClients[0].gameplay.hits, "p1");
             updateJudgements(data.tourney.ipcClients[1].gameplay.hits, "p2");
         }
     }
 
-    // --- Progress Bar ---
+    // Progress Bar
     try {
-        let live = data.menu?.bm?.time?.current || 0;
-        let firstObject = data.menu?.bm?.time?.firstObj || 0;
-        let lastObject = data.menu?.bm?.time?.mp3 || 0; // Using mp3 as the end time as recommended by the API
+        const live = data.menu?.bm?.time?.current || 0;
+        const firstObject = data.menu?.bm?.time?.firstObj || 0;
+        const lastObject = data.menu?.bm?.time?.mp3 || 0;
 
-        let totalPlayableTime = lastObject - firstObject;
-        let currentRelativeTime = live - firstObject;
+        const totalPlayableTime = lastObject - firstObject;
+        const currentRelativeTime = live - firstObject;
 
         let progressPercent = 0;
         if (totalPlayableTime > 0) {
             progressPercent = (currentRelativeTime / totalPlayableTime) * 100;
         }
 
-        let rawPercent = progressPercent; // Save for debug
-
-        // Defensive checks for NaN or Infinity
         if (isNaN(progressPercent) || !isFinite(progressPercent)) {
             progressPercent = 0;
         }
 
-        // Clamping (between 0% and 100%)
-        if (progressPercent < 0) progressPercent = 0;
-        if (progressPercent > 100) progressPercent = 100;
-
+        progressPercent = Math.max(0, Math.min(100, progressPercent));
         dom.progresoBar.style.width = `${progressPercent}%`;
 
-        // DEBUG: Inject raw values into the label so we can see what TOSU is sending live.
         const progText = document.querySelector(".progreso-text");
         if (progText) {
-            progText.textContent = `P: ${progressPercent.toFixed(1)}% | Raw: ${rawPercent.toFixed(1)} | L: ${live} | F: ${firstObject} | La: ${lastObject}`;
+            progText.textContent = `Progreso`;
         }
     } catch (e) {
         console.error('Progress bar error:', e);
-        const progText = document.querySelector(".progreso-text");
-        if (progText) progText.textContent = "ERR: " + e.message;
     }
 
-    // --- Match Stars (Pick Squares) ---
     updateStars(manager.stars.left, manager.stars.right, manager.bestOF);
 
-    // --- Win Screen (IPC State) ---
-    if (previousState !== manager.ipcState) {
+    if (previousIpcState !== manager.ipcState) {
         checkState(manager.ipcState);
-        previousState = manager.ipcState;
+        previousIpcState = manager.ipcState;
     }
 };
 
-// ============================================================
-// FUNCTIONS
-// ============================================================
-
-// --- Map Details ---
 function updateMapDetails(menu) {
-    let { id } = menu.bm;
-    let fileNm = menu.bm.path.file;
+    const { id } = menu.bm;
+    const fileNm = menu.bm.path.file;
     let { memoryOD, fullSR, BPM: { min, max } } = menu.bm.stats;
     let { full } = menu.bm.time;
-    let { artist, title, mapper } = menu.bm.metadata;
+    const { artist, title, mapper } = menu.bm.metadata;
 
-    // Supabase logic for Map Badge (RC, HB, LN, SV, TB)
     if (currentMapId !== id && id !== 0) {
         currentMapId = id;
         fetchMapModFromSupabase(id).then(mod => {
-            currentMapMod = mod || "FM"; // Fallback
+            currentMapMod = mod || "FM";
             dom.mapMod.textContent = currentMapMod;
             dom.mapMod.className = `map-mod mod-${currentMapMod}`;
         });
     }
 
-    // Check beatmapSet for HR / DT stats modification
+    // Adjust stats if custom map rules apply (e.g. HR / DT scaling)
     let customMapper = "";
-    let bmData = beatmapSet.find(b => b.beatmapId === id || b.beatmapId === fileNm);
+    const bmData = customBeatmaps.find(b => b.beatmapId === id || b.beatmapId === fileNm);
+
     if (bmData) {
         customMapper = bmData.mappers || "";
-        let mod = bmData.pick ? bmData.pick.substring(0, 2).toUpperCase() : currentMapMod;
+        const mod = bmData.pick ? bmData.pick.substring(0, 2).toUpperCase() : currentMapMod;
+
         if (mod === "HR") {
             memoryOD = Math.min(memoryOD * 1.4, 10).toFixed(2);
         } else if (mod === "DT") {
@@ -1040,7 +991,6 @@ function updateMapDetails(menu) {
         }
     }
 
-    // Update DOM
     dom.npTitle.textContent = `${artist} - ${title}`;
     dom.npMapper.textContent = customMapper ? `mapeado por ${customMapper}` : `mapeado por ${mapper}`;
     dom.npSr.textContent = `${parseFloat(fullSR || 0).toFixed(2)}*`;
@@ -1076,7 +1026,6 @@ async function fetchMapModFromSupabase(bmId) {
     }
     return null;
 }
-// --- Team Details (Logo) from Supabase ---
 async function setPlayerDetails(avatarEl, teamName) {
     if (!teamName) return;
     try {
@@ -1099,12 +1048,10 @@ async function setPlayerDetails(avatarEl, teamName) {
     }
 }
 
-// --- Roster Rendering ---
 function renderRoster(container, teamName, activeNickname, activeClass) {
     container.innerHTML = '';
     const roster = PLAYERS_DB.filter(p => p.teams && p.teams.name === teamName);
 
-    // If team not found in DB, just show the active nickname as a single player
     if (roster.length === 0) {
         const span = document.createElement('span');
         span.className = `roster-player ${activeClass}`;
@@ -1113,7 +1060,6 @@ function renderRoster(container, teamName, activeNickname, activeClass) {
         return;
     }
 
-    // Render all teammates
     roster.forEach(player => {
         const span = document.createElement('span');
         span.className = 'roster-player';
@@ -1125,27 +1071,22 @@ function renderRoster(container, teamName, activeNickname, activeClass) {
     });
 }
 
-// --- Live Score + Tug of War ---
 function updateScore(scoreLeft, scoreRight) {
-    // Cache scores for win screen
     cachedScoreLeft = scoreLeft;
     cachedScoreRight = scoreRight;
 
-    // CountUp animations
     animScore.p1Score.update(scoreLeft);
     animScore.p2Score.update(scoreRight);
 
-    let difference = Math.abs(scoreLeft - scoreRight);
+    const difference = Math.abs(scoreLeft - scoreRight);
     animScore.scoreDiff.update(difference);
 
-    // Tug of War bar: 50% = tied, 100% = P1 max lead, 0% = P2 max lead
-    let diff = scoreLeft - scoreRight;
-    let percentage = 50 + ((diff / barThreshold) * 50);
+    const diff = scoreLeft - scoreRight;
+    let percentage = 50 + ((diff / TUG_OF_WAR_THRESHOLD) * 50);
     percentage = Math.max(0, Math.min(100, percentage));
     dom.tugBar.style.width = `${percentage}%`;
 }
 
-// --- osu!mania Full Judgement Spread ---
 function updateJudgements(hits, side) {
     if (!hits) return;
     if (side === "p1") {
@@ -1165,28 +1106,24 @@ function updateJudgements(hits, side) {
     }
 }
 
-// --- Match Stars (Dynamic Pick Squares) ---
 function updateStars(starsLeft, starsRight, bestOf) {
-    const needed = Math.ceil(bestOf / 2);
+    const pointsNeededToWin = Math.ceil(bestOf / 2);
 
-    // Only rebuild if something changed
-    if (bestOfTemp === needed && starsLeftTemp === starsLeft && starsRightTemp === starsRight) return;
-    bestOfTemp = needed;
-    starsLeftTemp = starsLeft;
-    starsRightTemp = starsRight;
+    if (lastBestOf === pointsNeededToWin && lastStarsLeft === starsLeft && lastStarsRight === starsRight) return;
+    lastBestOf = pointsNeededToWin;
+    lastStarsLeft = starsLeft;
+    lastStarsRight = starsRight;
 
-    // --- P1 squares (left) ---
     dom.p1PickBox.querySelectorAll('.sq').forEach(sq => sq.remove());
-    for (let i = 0; i < needed; i++) {
+    for (let i = 0; i < pointsNeededToWin; i++) {
         const sq = document.createElement('div');
         sq.className = 'sq';
         sq.style.background = (i < starsLeft) ? '#f7a858' : 'rgba(255,255,255,0.15)';
         dom.p1PickBox.appendChild(sq);
     }
 
-    // --- P2 squares (right) ---
     dom.p2PickBox.querySelectorAll('.sq').forEach(sq => sq.remove());
-    for (let i = 0; i < needed; i++) {
+    for (let i = 0; i < pointsNeededToWin; i++) {
         const sq = document.createElement('div');
         sq.className = 'sq';
         sq.style.background = (i < starsRight) ? '#589ced' : 'rgba(255,255,255,0.15)';
@@ -1194,34 +1131,26 @@ function updateStars(starsLeft, starsRight, bestOf) {
     }
 }
 
-// --- Win Screen (IPC State Machine) ---
 function checkState(ipcState) {
     if (ipcState === 4 && cachedScoreLeft !== cachedScoreRight) {
-        // Results screen — show win overlay
-        const p1Wins = cachedScoreLeft > cachedScoreRight;
+        const isPlayerOneWinner = cachedScoreLeft > cachedScoreRight;
 
-        // Winner name + color
-        dom.winnerName.textContent = p1Wins ? tempLeft : tempRight;
-        dom.winnerName.style.color = p1Wins ? '#f7a858' : '#589ced';
+        dom.winnerName.textContent = isPlayerOneWinner ? lastPlayerOneName : lastPlayerTwoName;
+        dom.winnerName.style.color = isPlayerOneWinner ? '#f7a858' : '#589ced';
 
-        // Final scores
         dom.playerOneFinal.textContent = cachedScoreLeft.toLocaleString();
         dom.playerTwoFinal.textContent = cachedScoreRight.toLocaleString();
 
-        // Color: winner white, loser dimmed
-        dom.playerOneFinal.style.color = p1Wins ? 'white' : 'rgb(150,150,150)';
-        dom.playerTwoFinal.style.color = p1Wins ? 'rgb(150,150,150)' : 'white';
+        dom.playerOneFinal.style.color = isPlayerOneWinner ? 'white' : 'rgb(150,150,150)';
+        dom.playerTwoFinal.style.color = isPlayerOneWinner ? 'rgb(150,150,150)' : 'white';
 
-        // Percentage difference
-        const winnerScore = p1Wins ? cachedScoreLeft : cachedScoreRight;
-        const diff = Math.abs(cachedScoreLeft - cachedScoreRight);
-        const ratio = winnerScore > 0 ? (diff / winnerScore) * 100 : 0;
-        dom.percentage.textContent = `${ratio.toFixed(2)}%`;
+        const winnerScore = isPlayerOneWinner ? cachedScoreLeft : cachedScoreRight;
+        const scoreDiff = Math.abs(cachedScoreLeft - cachedScoreRight);
+        const winMarginRatio = winnerScore > 0 ? (scoreDiff / winnerScore) * 100 : 0;
+        dom.percentage.textContent = `${winMarginRatio.toFixed(2)}%`;
 
-        // Show
         dom.winScreen.classList.add('show-win');
     } else {
-        // Any other state — hide win overlay
         dom.winScreen.classList.remove('show-win');
     }
 }

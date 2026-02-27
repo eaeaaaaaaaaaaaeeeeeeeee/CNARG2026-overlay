@@ -1,19 +1,13 @@
-// =============================================================
-// CNARG 2026 — MAPPOOL SCENE (v4 — Selected Map + Blackout)
-// State Machine: Protect → Ban → Pick, auto-alternating turns.
-// =============================================================
+// CNARG 2026 - Mappool Scene
 
-// Config Variables
 let SUPABASE_URL = "";
 let SUPABASE_KEY = "";
 
-// SOCKET /////////////////////////////////////////////////////
-const socket = new ReconnectingWebSocket('ws://' + location.host + '/ws');
+const socket = new ReconnectingWebSocket(`ws://${location.host}/ws`);
 socket.onopen = () => { };
 socket.onclose = e => { };
 socket.onerror = e => { };
 
-// CONFIG /////////////////////////////////////////////////////
 let STAGE_ID = '';
 (async () => {
     try {
@@ -21,10 +15,10 @@ let STAGE_ID = '';
         STAGE_ID = c.stage_id;
         SUPABASE_URL = c.supabase_url;
         SUPABASE_KEY = c.supabase_key;
-    } catch (e) { console.error('config.json error:', e); }
+    } catch (e) {
+        console.error('Failed to load config.json:', e);
+    }
 })();
-
-// DOM REFS ///////////////////////////////////////////////////
 const dom = {
     // Sidebars
     p1Name: document.getElementById('playerOneName'),
@@ -73,64 +67,55 @@ const dom = {
     pick2Con: document.getElementById('pickTwoContainer'),
 };
 
-// =============================================================
-// GLOBAL STATE
-// =============================================================
-let tempLeft = '';
-let tempRight = '';
-let hasSetup = false;
+let lastPlayerOneName = '';
+let lastPlayerTwoName = '';
+let isSetupComplete = false;
 
-// --- Starting player toggle (Task 3) ---
-let startingPlayer = 0; // 0 = P1 starts, 1 = P2 starts
+let currentStartingPlayer = 0; // 0 = P1 starts, 1 = P2 starts
+let currentTurn = 0;           // 0 = P1, 1 = P2
+let currentPhase = 'protect';  // 'protect' | 'ban' | 'pick'
 
-// --- Turn & Phase ---
-let currentTurn = 0;        // 0 = P1, 1 = P2
-let currentPhase = 'protect'; // 'protect' | 'ban' | 'pick'
+let hasPlayerOneProtected = false;
+let hasPlayerTwoProtected = false;
+let hasPlayerOneBanned = false;
+let hasPlayerTwoBanned = false;
 
-// --- Limits: 1 each per team ---
-let p1ProtectUsed = false;
-let p2ProtectUsed = false;
-let p1BanUsed = false;
-let p2BanUsed = false;
-
-// --- Pick tracking ---
 let currentPick = null;
-let picking = true;
+let isPickingPhase = true;
 
-// --- Chat ---
-let chatLen = 0;
+let processedChatLinesCount = 0;
 
-// --- IPC / Scores ---
-let previousIPC = null;
-let cachedScoreL = 0;
-let cachedScoreR = 0;
+let lastOsuIpcState = null;
+let cachedScoreLeft = 0;
+let cachedScoreRight = 0;
 
-// --- Timeout ---
-let leftIsTimeout = false;
-let rightIsTimeout = false;
+let isLeftTimeoutActive = false;
+let isRightTimeoutActive = false;
 
-// --- All card instances ---
-const allCards = [];
+const allBeatmapCards = [];
 
-// =============================================================
-// HELPERS
-// =============================================================
-function tName(t) { return t === 0 ? tempLeft : tempRight; }
-function tColor(t) { return t === 0 ? 'var(--p1)' : 'var(--p2)'; }
-function tRGB(t) { return t === 0 ? '247, 168, 88' : '88, 156, 237'; }
+function getTeamNameByTurn(turnIdx) {
+    return turnIdx === 0 ? lastPlayerOneName : lastPlayerTwoName;
+}
+
+function getTeamColorByTurn(turnIdx) {
+    return turnIdx === 0 ? 'var(--p1)' : 'var(--p2)';
+}
+
+function getTeamRGBByTurn(turnIdx) {
+    return turnIdx === 0 ? '247, 168, 88' : '88, 156, 237';
+}
+
 function formatTime(sec) {
     if (!sec && sec !== 0) return '00:00';
     return String(Math.floor(sec / 60)).padStart(2, '0') + ':' + String(sec % 60).padStart(2, '0');
 }
 
-// =============================================================
-// localStorage SYNC → MATCH scene
-// =============================================================
 function broadcastState() {
     try {
         localStorage.setItem('cnarg-pick', JSON.stringify({
             turn: currentTurn,
-            currentPlayer: tName(currentTurn),
+            currentPlayer: getTeamNameByTurn(currentTurn),
             currentPick,
             phase: currentPhase,
             ts: Date.now()
@@ -138,9 +123,6 @@ function broadcastState() {
     } catch (_) { }
 }
 
-// =============================================================
-// PHASE MANAGEMENT
-// =============================================================
 function advancePhase() {
     if (currentPhase === 'protect' && p1ProtectUsed && p2ProtectUsed) {
         currentPhase = 'ban';
@@ -165,9 +147,6 @@ function updateStatusBar() {
     dom.pickingTxt.style.color = tColor(currentTurn);
 }
 
-// =============================================================
-// SELECTED MAP PREVIEW
-// =============================================================
 function showSelectedMap(data, ownerTurn) {
     const d = data;
     const coverUrl = `https://assets.ppy.sh/beatmaps/${d.banner_id || ''}/covers/cover.jpg`;
@@ -206,9 +185,6 @@ function hideSelectedMap() {
     dom.upcomingTxt.style.opacity = '0';
 }
 
-// =============================================================
-// BEATMAP CARD CLASS
-// =============================================================
 class MapCard {
     constructor(dbMap, idx) {
         this.id = `card${idx}`;
@@ -263,44 +239,40 @@ class MapCard {
         this.el.addEventListener('contextmenu', e => { e.preventDefault(); this.handleReset(); });
     }
 
-    // --- LEFT CLICK ---
     handleClick() {
         if (this.state !== 'available') return;
-        const t = currentTurn;
+        const turn = currentTurn;
 
         if (currentPhase === 'protect') {
-            if (t === 0 && p1ProtectUsed) return;
-            if (t === 1 && p2ProtectUsed) return;
+            if (turn === 0 && hasPlayerOneProtected) return;
+            if (turn === 1 && hasPlayerTwoProtected) return;
             this.state = 'protected';
-            this.owner = t;
-            if (t === 0) p1ProtectUsed = true; else p2ProtectUsed = true;
-            this._vProtect(t);
+            this.owner = turn;
+            if (turn === 0) hasPlayerOneProtected = true; else hasPlayerTwoProtected = true;
+            this._vProtect(turn);
             advancePhase();
             toggleTurn();
-        }
-        else if (currentPhase === 'ban') {
-            if (t === 0 && p1BanUsed) return;
-            if (t === 1 && p2BanUsed) return;
+        } else if (currentPhase === 'ban') {
+            if (turn === 0 && hasPlayerOneBanned) return;
+            if (turn === 1 && hasPlayerTwoBanned) return;
             this.state = 'banned';
-            this.owner = t;
-            if (t === 0) p1BanUsed = true; else p2BanUsed = true;
-            this._vBan(t);
+            this.owner = turn;
+            if (turn === 0) hasPlayerOneBanned = true; else hasPlayerTwoBanned = true;
+            this._vBan(turn);
             advancePhase();
             toggleTurn();
-        }
-        else if (currentPhase === 'pick') {
+        } else if (currentPhase === 'pick') {
             this.state = 'picked';
-            this.owner = t;
+            this.owner = turn;
             currentPick = this.pick;
-            picking = false;
-            this._vPick(t);
-            showSelectedMap(this.data, t);
+            isPickingPhase = false;
+            this._vPick(turn);
+            showSelectedMap(this.data, turn);
             toggleTurn();
         }
         broadcastState();
     }
 
-    // --- RIGHT CLICK: Reset ---
     handleReset() {
         if (this.state === 'available') return;
         if (this.state === 'protected') {
@@ -326,17 +298,16 @@ class MapCard {
         broadcastState();
     }
 
-    // === VISUALS ===
-    _vProtect(t) {
+    _vProtect(turn) {
         this.el.classList.add('state-protect');
-        this.el.style.boxShadow = `0 0 20px rgba(${tRGB(t)}, 0.6), inset 0 0 15px rgba(${tRGB(t)}, 0.1)`;
-        this.el.style.borderColor = tColor(t);
+        this.el.style.boxShadow = `0 0 20px rgba(${getTeamRGBByTurn(turn)}, 0.6), inset 0 0 15px rgba(${getTeamRGBByTurn(turn)}, 0.1)`;
+        this.el.style.borderColor = getTeamColorByTurn(turn);
         this.statusEl.style.opacity = '1';
-        this.statusEl.style.background = `rgba(${tRGB(t)}, 0.15)`;
-        this.statusEl.innerHTML = `<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="${tColor(t)}" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`;
+        this.statusEl.style.background = `rgba(${getTeamRGBByTurn(turn)}, 0.15)`;
+        this.statusEl.innerHTML = `<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="${getTeamColorByTurn(turn)}" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`;
     }
 
-    _vBan(t) {
+    _vBan(turn) {
         this.el.classList.add('state-ban');
         this.bgEl.style.filter = 'blur(4px) grayscale(100%)';
         this.overlayEl.style.background = 'rgba(0,0,0,0.8)';
@@ -346,15 +317,15 @@ class MapCard {
         this.statusEl.innerHTML = `<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#ff4444" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
     }
 
-    _vPick(t) {
+    _vPick(turn) {
         this.el.classList.add('state-pick');
-        this.el.style.borderColor = tColor(t);
-        this.el.style.boxShadow = `0 0 12px rgba(${tRGB(t)}, 0.5)`;
+        this.el.style.borderColor = getTeamColorByTurn(turn);
+        this.el.style.boxShadow = `0 0 12px rgba(${getTeamRGBByTurn(turn)}, 0.5)`;
         this.statusEl.style.opacity = '1';
         this.statusEl.style.background = `linear-gradient(90deg, transparent, rgba(0,0,0,0.7) 40%, rgba(0,0,0,0.7) 60%, transparent)`;
-        this.statusEl.style.borderColor = tColor(t);
-        this.statusEl.style.color = tColor(t);
-        this.statusEl.textContent = tName(t);
+        this.statusEl.style.borderColor = getTeamColorByTurn(turn);
+        this.statusEl.style.color = getTeamColorByTurn(turn);
+        this.statusEl.textContent = getTeamNameByTurn(turn);
     }
 
     _vReset() {
@@ -367,15 +338,11 @@ class MapCard {
         this.statusEl.style.background = '';
         this.statusEl.style.borderColor = 'transparent';
         this.statusEl.style.color = '';
-        this.statusEl.innerHTML = '';
     }
 }
 
-// =============================================================
-// SETUP BEATMAPS
-// =============================================================
 async function setupBeatmaps() {
-    hasSetup = true;
+    isSetupComplete = true;
     try {
         const res = await axios.get(`${SUPABASE_URL}/rest/v1/mappool_maps`, {
             params: { stage_id: `eq.${STAGE_ID}`, select: '*' },
@@ -407,16 +374,14 @@ async function setupBeatmaps() {
             }
             const card = new MapCard(dbMap, i);
             card.render(curRow);
-            allCards.push(card);
+            allBeatmapCards.push(card);
         });
 
-        console.log(`Loaded ${sorted.length} maps.`);
-    } catch (e) { console.error('Error fetching mappool:', e); }
+    } catch (e) {
+        console.error('Error fetching mappool:', e);
+    }
 }
 
-// =============================================================
-// SUPABASE: Team details
-// =============================================================
 async function setTeamDetails(avatarEl, seedEl, rankEl, name) {
     if (!name) return;
     try {
@@ -430,15 +395,17 @@ async function setTeamDetails(avatarEl, seedEl, rankEl, name) {
             if (seedEl) seedEl.textContent = t.seed ? `SEED #${t.seed}` : '';
             if (rankEl) rankEl.textContent = t.rank ? `RANK #${t.rank}` : '';
         }
-    } catch (e) { console.error('Team fetch error:', e); }
+    } catch (e) {
+        // Ignored fetch error
+    }
 }
 
-// =============================================================
-// CHAT
-// =============================================================
 function updateChat(chatArray) {
-    if (chatLen > chatArray.length) { dom.chats.innerHTML = ''; chatLen = 0; }
-    for (let i = chatLen; i < chatArray.length; i++) {
+    if (processedChatLinesCount > chatArray.length) {
+        dom.chats.innerHTML = '';
+        processedChatLinesCount = 0;
+    }
+    for (let i = processedChatLinesCount; i < chatArray.length; i++) {
         const msg = chatArray[i];
         const row = document.createElement('div');
         row.className = 'chat-row';
@@ -454,45 +421,36 @@ function updateChat(chatArray) {
         row.append(time, name, body);
         dom.chats.appendChild(row);
     }
-    chatLen = chatArray.length;
+    processedChatLinesCount = chatArray.length;
     dom.chats.scrollTop = dom.chats.scrollHeight;
 }
 
-// =============================================================
-// TIMEOUT
-// =============================================================
 function toggleTimeout(side) {
     const isLeft = side === 'left';
-    const alreadyOn = isLeft ? leftIsTimeout : rightIsTimeout;
-    if (alreadyOn) {
-        if (isLeft) leftIsTimeout = false; else rightIsTimeout = false;
+    const isAlreadyActive = isLeft ? isLeftTimeoutActive : isRightTimeoutActive;
+    if (isAlreadyActive) {
+        if (isLeft) isLeftTimeoutActive = false; else isRightTimeoutActive = false;
         dom.toOverlay.style.opacity = '0';
         dom.toFloater.classList.remove('show');
         setTimeout(() => { dom.screen.style.display = 'none'; }, 700);
     } else {
-        if (isLeft) { leftIsTimeout = true; rightIsTimeout = false; }
-        else { rightIsTimeout = true; leftIsTimeout = false; }
+        if (isLeft) { isLeftTimeoutActive = true; isRightTimeoutActive = false; }
+        else { isRightTimeoutActive = true; isLeftTimeoutActive = false; }
         dom.screen.style.display = 'flex';
-        dom.toFloater.textContent = `TIMEOUT — ${isLeft ? tempLeft : tempRight}`;
+        dom.toFloater.textContent = `TIMEOUT — ${isLeft ? lastPlayerOneName : lastPlayerTwoName}`;
         dom.toFloater.style.borderColor = isLeft ? 'var(--p1)' : 'var(--p2)';
         setTimeout(() => { dom.toOverlay.style.opacity = '1'; dom.toFloater.classList.add('show'); }, 100);
     }
 }
 
-// =============================================================
-// AUTO-SYNC: Check if current beatmap matches a picked card
-// =============================================================
 function autoSyncBeatmap(beatmapId) {
     if (!beatmapId) return;
-    const matched = allCards.find(c => c.beatmapID == beatmapId && c.state === 'picked');
+    const matched = allBeatmapCards.find(c => c.beatmapID == beatmapId && c.state === 'picked');
     if (matched) {
         showSelectedMap(matched.data, matched.owner);
     }
 }
 
-// =============================================================
-// CONTROL PANEL
-// =============================================================
 document.getElementById('protectButton').addEventListener('click', () => {
     currentPhase = 'protect'; updateStatusBar();
 });
@@ -509,16 +467,15 @@ document.getElementById('playerTwoButton').addEventListener('click', () => {
     currentTurn = 1; updateStatusBar(); broadcastState();
 });
 document.getElementById('nextButton').addEventListener('click', () => {
-    picking = true;
+    isPickingPhase = true;
     hideSelectedMap();
     toggleTurn();
 });
 document.getElementById('swapStartButton').addEventListener('click', () => {
-    startingPlayer = startingPlayer === 0 ? 1 : 0;
-    currentTurn = startingPlayer;
+    currentStartingPlayer = currentStartingPlayer === 0 ? 1 : 0;
+    currentTurn = currentStartingPlayer;
     updateStatusBar();
     broadcastState();
-    console.log(`Starting player swapped to P${startingPlayer + 1}`);
 });
 
 const obsToggleBtn = document.getElementById('obsAutoToggle');
@@ -534,24 +491,18 @@ if (obsToggleBtn) {
 document.getElementById('leftTimeout').addEventListener('click', () => toggleTimeout('left'));
 document.getElementById('rightTimeout').addEventListener('click', () => toggleTimeout('right'));
 
-// =============================================================
-// MAIN WEBSOCKET LOOP
-// =============================================================
 socket.onmessage = async event => {
     const data = JSON.parse(event.data);
     const mgr = data.tourney.manager;
 
-    // Cache scores
     if (mgr.bools.scoreVisible) {
-        cachedScoreL = mgr.gameplay.score.left;
-        cachedScoreR = mgr.gameplay.score.right;
+        cachedScoreLeft = mgr.gameplay.score.left;
+        cachedScoreRight = mgr.gameplay.score.right;
     }
 
-    // IPC state change
-    if (previousIPC !== mgr.ipcState) {
-        previousIPC = mgr.ipcState;
+    if (lastOsuIpcState !== mgr.ipcState) {
+        lastOsuIpcState = mgr.ipcState;
 
-        // Auto OBS Switcher trigger
         if (typeof handleOsuIpcState === 'function') {
             handleOsuIpcState(mgr.ipcState);
         }
@@ -561,36 +512,32 @@ socket.onmessage = async event => {
         }
     }
 
-    // Team name changes
-    if (tempLeft !== mgr.teamName.left && mgr.teamName.left) {
-        tempLeft = mgr.teamName.left;
-        dom.p1Name.textContent = tempLeft;
-        setTeamDetails(dom.p1Pic, dom.p1Seed, dom.p1Rank, tempLeft);
+    if (lastPlayerOneName !== mgr.teamName.left && mgr.teamName.left) {
+        lastPlayerOneName = mgr.teamName.left;
+        dom.p1Name.textContent = lastPlayerOneName;
+        setTeamDetails(dom.p1Pic, dom.p1Seed, dom.p1Rank, lastPlayerOneName);
     }
-    if (tempRight !== mgr.teamName.right && mgr.teamName.right) {
-        tempRight = mgr.teamName.right;
-        dom.p2Name.textContent = tempRight;
-        setTeamDetails(dom.p2Pic, dom.p2Seed, dom.p2Rank, tempRight);
+    if (lastPlayerTwoName !== mgr.teamName.right && mgr.teamName.right) {
+        lastPlayerTwoName = mgr.teamName.right;
+        dom.p2Name.textContent = lastPlayerTwoName;
+        setTeamDetails(dom.p2Pic, dom.p2Seed, dom.p2Rank, lastPlayerTwoName);
     }
 
-    // First-time setup
-    if (!hasSetup && STAGE_ID) {
-        hasSetup = true; // Prevent parallel executions
+    if (!isSetupComplete && STAGE_ID) {
+        isSetupComplete = true;
         setupBeatmaps().then(() => {
-            currentTurn = startingPlayer;
+            currentTurn = currentStartingPlayer;
             currentPhase = 'protect';
             updateStatusBar();
             broadcastState();
         });
     }
 
-    // Auto-sync: check if the current osu! beatmap matches a picked card
     if (data.menu && data.menu.bm && data.menu.bm.id) {
         autoSyncBeatmap(data.menu.bm.id);
     }
 
-    // Chat
-    if (chatLen !== mgr.chat.length) {
+    if (processedChatLinesCount !== mgr.chat.length) {
         updateChat(mgr.chat);
     }
 };

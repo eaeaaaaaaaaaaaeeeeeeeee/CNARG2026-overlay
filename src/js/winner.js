@@ -1,16 +1,11 @@
-// =============================================================
-// CNARG 2026 — WINNER SCENE
-// Shows the match winner with avatar, score, and loser info.
-// Reads from TOSU WebSocket + Supabase for team data.
-// =============================================================
+// CNARG 2026 - Winner Scene
 
 let SUPABASE_URL = "";
 let SUPABASE_KEY = "";
 
-const socket = new ReconnectingWebSocket('ws://' + location.host + '/ws');
+const socket = new ReconnectingWebSocket(`ws://${location.host}/ws`);
 socket.onopen = () => { };
 
-// DOM
 const dom = {
     sideP1: document.getElementById('sideP1'),
     sideP2: document.getElementById('sideP2'),
@@ -21,10 +16,10 @@ const dom = {
     loserName: document.getElementById('loser-name'),
 };
 
-let tempLeft = '';
-let tempRight = '';
-let starsL = 0;
-let starsR = 0;
+let lastPlayerOneName = '';
+let lastPlayerTwoName = '';
+let currentScoreLeft = 0;
+let currentScoreRight = 0;
 let teamDataCache = {};
 let hasResolved = false;
 
@@ -50,38 +45,33 @@ async function fetchTeam(name) {
 
 function resolveWinner() {
     if (hasResolved) return;
-    if (!tempLeft || !tempRight) return;
-
-    const bestOf = Math.max(starsL, starsR); // whoever hit the target
-    const firstTo = Math.ceil(bestOf); // already is the count
+    if (!lastPlayerOneName || !lastPlayerTwoName) return;
 
     let winnerName, loserName, winnerSide;
 
-    if (starsL > starsR) {
-        winnerName = tempLeft;
-        loserName = tempRight;
+    if (currentScoreLeft > currentScoreRight) {
+        winnerName = lastPlayerOneName;
+        loserName = lastPlayerTwoName;
         winnerSide = 'left';
-    } else if (starsR > starsL) {
-        winnerName = tempRight;
-        loserName = tempLeft;
+    } else if (currentScoreRight > currentScoreLeft) {
+        winnerName = lastPlayerTwoName;
+        loserName = lastPlayerOneName;
         winnerSide = 'right';
     } else {
-        // Tied — no winner yet
-        return;
+        return; // Tied, no winner yet
     }
 
     hasResolved = true;
 
     dom.winName.textContent = winnerName;
     dom.winName.style.color = winnerSide === 'left' ? 'var(--p1)' : 'var(--p2)';
-    dom.scoreLeft.textContent = starsL;
-    dom.scoreRight.textContent = starsR;
+    dom.scoreLeft.textContent = currentScoreLeft;
+    dom.scoreRight.textContent = currentScoreRight;
     dom.loserName.textContent = loserName;
 
-    // Fetch avatar
-    fetchTeam(winnerName).then(t => {
-        if (t && t.logo_url) {
-            dom.winAvatar.style.backgroundImage = `url('${t.logo_url}')`;
+    fetchTeam(winnerName).then(team => {
+        if (team && team.logo_url) {
+            dom.winAvatar.style.backgroundImage = `url('${team.logo_url}')`;
             dom.winAvatar.style.borderColor = winnerSide === 'left' ? 'var(--p1)' : 'var(--p2)';
         }
     });
@@ -89,26 +79,23 @@ function resolveWinner() {
 
 socket.onmessage = async event => {
     const data = JSON.parse(event.data);
-    const mgr = data.tourney.manager;
+    const manager = data.tourney.manager;
 
-    // Team names
-    if (tempLeft !== mgr.teamName.left && mgr.teamName.left) {
-        tempLeft = mgr.teamName.left;
-        dom.sideP1.textContent = tempLeft;
+    if (lastPlayerOneName !== manager.teamName.left && manager.teamName.left) {
+        lastPlayerOneName = manager.teamName.left;
+        dom.sideP1.textContent = lastPlayerOneName;
     }
-    if (tempRight !== mgr.teamName.right && mgr.teamName.right) {
-        tempRight = mgr.teamName.right;
-        dom.sideP2.textContent = tempRight;
+    if (lastPlayerTwoName !== manager.teamName.right && manager.teamName.right) {
+        lastPlayerTwoName = manager.teamName.right;
+        dom.sideP2.textContent = lastPlayerTwoName;
     }
 
-    // Stars (match score)
-    starsL = mgr.stars.left;
-    starsR = mgr.stars.right;
-    dom.scoreLeft.textContent = starsL;
-    dom.scoreRight.textContent = starsR;
+    currentScoreLeft = manager.stars.left;
+    currentScoreRight = manager.stars.right;
+    dom.scoreLeft.textContent = currentScoreLeft;
+    dom.scoreRight.textContent = currentScoreRight;
 
-    // Auto-resolve when a player wins
-    if (!hasResolved && (starsL > 0 || starsR > 0)) {
+    if (!hasResolved && (currentScoreLeft > 0 || currentScoreRight > 0)) {
         resolveWinner();
     }
 };
